@@ -1,21 +1,21 @@
 # Android
-# before_script:
-#   - export ANDROID_HOME="$HOME/Library/Android/sdk" #sets Android home environment variable to be available for all other jobs and Gradle tasks
-#   - bundle install # using fastlane for task automation and Bundler to manage Ruby gems so we need to run bundle install to make sure everything is installed correctly
-# stages:
-#   - build #for build jobs
-#   - test #for test jobs that include unit and instrumentation tests
-#   - quality_assurance #for jobs that run all of our QA tools
-#   - deploy #for deployment jobs
+before_script:
+  - export ANDROID_HOME="$HOME/Library/Android/sdk" #sets Android home environment variable to be available for all other jobs and Gradle tasks
+  - bundle install # using fastlane for task automation and Bundler to manage Ruby gems so we need to run bundle install to make sure everything is installed correctly
+stages:
+  - build #for build jobs
+  - test #for test jobs that include unit and instrumentation tests
+  - quality_assurance #for jobs that run all of our QA tools
+  - deploy #for deployment jobs
 
 # used to create an APK artifact that can be used to test the app manually or to upload it to the Play Store
-# build_job: # name of the CI job
-#   stage: build  # it gets executed in the build stage
-#   script:
-#     - ./gradlew clean assembleRelease #  executes Gradle command to create a release APK
-#   artifacts: # job section that defines list of files and directories that are attached to a job after completion.
-#     paths: # output file paths
-#       - app/build/outputs/ # directory path of our APK
+build_job: # name of the CI job
+  stage: build  # it gets executed in the build stage
+  script:
+    - ./gradlew clean assembleRelease #  executes Gradle command to create a release APK
+  artifacts: # job section that defines list of files and directories that are attached to a job after completion.
+    paths: # output file paths
+      - app/build/outputs/ # directory path of our APK
 
 # runs our unit tests in a test stage. Every time they fail, a report artifact will be created.
 # unit_tests:
