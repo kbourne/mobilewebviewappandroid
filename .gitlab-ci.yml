@@ -18,16 +18,16 @@ build_job: # name of the CI job
       - app/build/outputs/ # directory path of our APK
 
 # runs our unit tests in a test stage. Every time they fail, a report artifact will be created.
-# unit_tests:
-#   stage: test
-#   script:
-#     - ./gradlew test # run Gradle command that triggers our unit tests artifacts:
-#   artifacts:
-#     name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}" # defines artifact name by using environment variables, project name that is currently being built, branch or tag name for which project is built
-#     when: on_failure # defines when is it created (on_success, on_failure, always)
-#     expire_in: 4 days # Each report artifact expires within four days of creation.
-#     paths:
-#       - app/build/reports/tests/
+unit_tests:
+  stage: test
+  script:
+    - ./gradlew test # run Gradle command that triggers our unit tests artifacts:
+  artifacts:
+    name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}" # defines artifact name by using environment variables, project name that is currently being built, branch or tag name for which project is built
+    when: on_failure # defines when is it created (on_success, on_failure, always)
+    expire_in: 4 days # Each report artifact expires within four days of creation.
+    paths:
+      - app/build/reports/tests/
 
 # runs all of our instrumentation tests in a test stage by starting a windowless 
 # emulator without sound and animations followed by a custom bash script that waits 
@@ -35,24 +35,24 @@ build_job: # name of the CI job
 # key event 82. When the emulator is ready we run the Gradle command for 
 # instrumentation tests. Once all tests finished running, the emulator is 
 # killed with a custom bash script.
-# instrumentation_tests:
-#   stage: test
-#   script:
-#     - emulator -avd testAVD -no-audio -no-window &
-#     - ./ci/android-wait-for-emulator.sh # Starts the emulator and waits for it to boot.
-#     - adb devices # Displays list of found devices in GitLab web terminal.
-#     - adb shell settings put global window_animation_scale 0 & # Disables all animations and transitions.
-#     - adb shell settings put global transition_animation_scale 0 &
-#     - adb shell settings put global animator_duration_scale 0 &
-#     - adb shell input keyevent 82 &
-#     - ./gradlew connectedAndroidTest
-#     - ./ci/stop-emulators.sh
-#   artifacts:
-#     name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}"
-#     when: on_failure
-#     expire_in: 4 days
-#     paths:
-#       - app/build/reports/androidTests/connected/
+instrumentation_tests:
+  stage: test
+  script:
+    - emulator -avd testAVD -no-audio -no-window &
+    - ./ci/android-wait-for-emulator.sh # Starts the emulator and waits for it to boot.
+    - adb devices # Displays list of found devices in GitLab web terminal.
+    - adb shell settings put global window_animation_scale 0 & # Disables all animations and transitions.
+    - adb shell settings put global transition_animation_scale 0 &
+    - adb shell settings put global animator_duration_scale 0 &
+    - adb shell input keyevent 82 &
+    - ./gradlew connectedAndroidTest
+    - ./ci/stop-emulators.sh
+  artifacts:
+    name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}"
+    when: on_failure
+    expire_in: 4 days
+    paths:
+      - app/build/reports/androidTests/connected/
 
 
 # runs all of static code analysis in QA stage. This is a tricky area especially 
