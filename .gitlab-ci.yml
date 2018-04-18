@@ -1,158 +1,40 @@
-image: openjdk:8-jdk # tells GitLab Runners (the things that are executing our build) what Docker image to use
+
+image: openjdk:8-jdk
 
 variables:
-  ANDROID_COMPILE_SDK: "25"
-  ANDROID_BUILD_TOOLS: "24.0.0"
-  ANDROID_SDK_TOOLS: "24.4.1"
-
-before_script:
-  - apt-get --quiet update --yes
-  - apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1
-  - wget --quiet --output-document=android-sdk.tgz https://dl.google.com/android/android-sdk_r${ANDROID_SDK_TOOLS}-linux.tgz
-  - tar --extract --gzip --file=android-sdk.tgz
-  - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter android-${ANDROID_COMPILE_SDK}
-  - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter platform-tools
-  - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter build-tools-${ANDROID_BUILD_TOOLS}
-  - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter extra-android-m2repository
-  - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter extra-google-google_play_services
-  - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter extra-google-m2repository
-  - export ANDROID_HOME=$PWD/android-sdk-linux
-  - export PATH=$PATH:$PWD/android-sdk-linux/platform-tools/
-  - chmod +x ./gradlew
+#   ANDROID_COMPILE_SDK: "25"
+#   ANDROID_BUILD_TOOLS: "25.0.3"
+  ANDROID_SDK_TOOLS: "3859397"
 
 stages:
   - build
-  - test
 
 build:
   stage: build
+
+  before_script:
+    # Extract the SDK version that we're building against
+    - export ANDROID_COMPILE_SDK=`egrep '^[[:blank:]]+compileSdkVersion'  app/build.gradle | awk '{print $2}'`
+
+    # Explict output for logging purpose only
+    - echo $ANDROID_SDK_TOOLS
+    - echo $ANDROID_COMPILE_SDK
+
+    # Fetch the specified SDK tools version to build with
+    - wget --quiet --output-document=/tmp/sdk-tools-linux.zip https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_TOOLS}.zip
+    - unzip /tmp/sdk-tools-linux.zip -d .android
+
+    # Set up environment variables
+    - export ANDROID_HOME=$PWD/.android
+    - export PATH=$PATH:$PWD/.android/platform-tools/
+
+    # Install platform tools and Android SDK for the compile target
+    - echo y | .android/tools/bin/sdkmanager "platforms;android-${ANDROID_COMPILE_SDK}"
+
+    - chmod +x ./gradlew
+
   script:
     - ./gradlew assembleDebug
   artifacts:
     paths:
     - app/build/outputs/
-
-unitTests:
-  stage: test
-  script:
-    - ./gradlew test
-
-functionalTests:
-  stage: test
-  script:
-    - wget --quiet --output-document=android-wait-for-emulator https://raw.githubusercontent.com/travis-ci/travis-cookbooks/0f497eb71291b52a703143c5cd63a217c8766dc9/community-cookbooks/android-sdk/files/default/android-wait-for-emulator
-    - chmod +x android-wait-for-emulator
-    - echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter sys-img-x86-google_apis-${ANDROID_COMPILE_SDK}
-    - echo no | android-sdk-linux/tools/android create avd -n test -t android-${ANDROID_COMPILE_SDK} --abi google_apis/x86
-    - android-sdk-linux/tools/emulator64-x86 -avd test -no-window -no-audio &
-    - ./android-wait-for-emulator
-    - adb shell input keyevent 82
-    - ./gradlew cAT
-
-
-# Android
-# before_script:
-#   - export ANDROID_HOME="$HOME/Library/Android/sdk" #sets Android home environment variable to be available for all other jobs and Gradle tasks
-#   - bundle install # using fastlane for task automation and Bundler to manage Ruby gems so we need to run bundle install to make sure everything is installed correctly
-# stages:
-#   - build #for build jobs
-#   - test #for test jobs that include unit and instrumentation tests
-#   - quality_assurance #for jobs that run all of our QA tools
-#   - deploy #for deployment jobs
-
-# # used to create an APK artifact that can be used to test the app manually or to upload it to the Play Store
-# build_job: # name of the CI job
-#   stage: build  # it gets executed in the build stage
-#   script:
-#     - ./gradlew clean assembleRelease #  executes Gradle command to create a release APK
-#   artifacts: # job section that defines list of files and directories that are attached to a job after completion.
-#     paths: # output file paths
-#       - app/build/outputs/ # directory path of our APK
-
-# runs our unit tests in a test stage. Every time they fail, a report artifact will be created.
-# unit_tests:
-#   stage: test
-#   script:
-#     - ./gradlew test # run Gradle command that triggers our unit tests artifacts:
-#   artifacts:
-#     name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}" # defines artifact name by using environment variables, project name that is currently being built, branch or tag name for which project is built
-#     when: on_failure # defines when is it created (on_success, on_failure, always)
-#     expire_in: 4 days # Each report artifact expires within four days of creation.
-#     paths:
-#       - app/build/reports/tests/
-
-# runs all of our instrumentation tests in a test stage by starting a windowless 
-# emulator without sound and animations followed by a custom bash script that waits 
-# for the emulator to start, after which the device is unlocked by sending 
-# key event 82. When the emulator is ready we run the Gradle command for 
-# instrumentation tests. Once all tests finished running, the emulator is 
-# killed with a custom bash script.
-# instrumentation_tests:
-#   stage: test
-#   script:
-#     - emulator -avd testAVD -no-audio -no-window &
-#     - ./ci/android-wait-for-emulator.sh # Starts the emulator and waits for it to boot.
-#     - adb devices # Displays list of found devices in GitLab web terminal.
-#     - adb shell settings put global window_animation_scale 0 & # Disables all animations and transitions.
-#     - adb shell settings put global transition_animation_scale 0 &
-#     - adb shell settings put global animator_duration_scale 0 &
-#     - adb shell input keyevent 82 &
-#     - ./gradlew connectedAndroidTest
-#     - ./ci/stop-emulators.sh
-#   artifacts:
-#     name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}"
-#     when: on_failure
-#     expire_in: 4 days
-#     paths:
-#       - app/build/reports/androidTests/connected/
-
-
-# runs all of static code analysis in QA stage. This is a tricky area especially 
-# if you are working on a project with a lot of legacy code. My suggestion would 
-# be to disable all of the rules and start fixing them one at the time. 
-# Tools used for static analysis are lint, checkstyle, pmd and findbugs.
-# static_analysis:
-#   stage: quality_assurance
-#   script:
-#     - ./gradlew lint
-#     - ./gradlew checkstyle
-#     - ./gradlew pmd
-#     - ./gradlew findbugs
-#   artifacts:
-#     name: "reports_${CI_PROJECT_NAME}_${CI_BUILD_REF_NAME}"
-#     when: on_failure
-#     expire_in: 4 days
-#     paths:
-#       - app/build/reports/
-
-# deploys the app to the QA team in deploy stage. You don’t want to deploy every 
-# time you commit something so this step is set as manual. Manual jobs are 
-# triggered via GitLab web interface by pressing the play button in your 
-# pipeline list. If you are using fastlane as your deployment tool, the last 
-# job will look like the following code:
-# deploy_internal:
-#   stage: deploy
-#   script:
-#     - bundle exec fastlane android deploy_lane
-#   when: manual
-
-
-#iOS
-#   variables:
-#   DEVELOPMENT_TEAM: "[filliniOSDevTeamIDNoBrackets]"
-
-# stages:
-#   - archive
-
-# archive_project:
-#   stage: archive
-#   script:
-#     - xcodebuild clean archive -archivePath "build/Release-iphoneos/" -scheme [fillinAppNameNoBrackets] -allowProvisioningUpdates DEVELOPMENT_TEAM="[filliniOSDevTeamIDNoBrackets]"
-#     - xcodebuild -exportArchive -configuration Release clean archive -archivePath "build/Release-iphoneos.xcarchive" -exportPath "build/[fillinAppNameNoBrackets]" DEVELOPMENT_TEAM=[filliniOSDevTeamIDNoBrackets] -allowProvisioningUpdates -exportOptionsPlist ExportOptions.plist
-#   only:
-#     - test
-#   artifacts:
-#     paths:
-#     - build/WDPhoto
-#   tags:
-#     - ios
